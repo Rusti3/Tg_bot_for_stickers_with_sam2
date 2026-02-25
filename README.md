@@ -50,7 +50,7 @@ Copy-Item .env.example .env
 Открой `.env` и укажи токен без лишних пробелов:
 
 ```env
-BOT_TOKEN=1234567890:YOUR_TELEGRAM_BOT_TOKEN
+BOT_TOKEN=YOUR_TELEGRAM_BOT_TOKEN
 ```
 
 ## Скачивание веса SAM2.1 (обязательно)
@@ -104,6 +104,3 @@ python .\birefnet_sam2_full.py
 - Именованный цвет + допуск: `black30`, `white20`, `red40`, `green25`, `blue35`
 - HEX + допуск: `#ffffff20`, `#00000030`
 
-## Важно по безопасности
-- Файл `.env` **не пушить** в GitHub.
-- Пушится только `.env.example`.
