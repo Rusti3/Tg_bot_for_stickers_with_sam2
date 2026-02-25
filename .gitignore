@@ -1,0 +1,32 @@
+# Виртуальное окружение (основное)
+.venv/
+venv/
+ENV/
+env/
+
+# Директории с временными файлами твоего бота (из кода)
+bot_temp/
+checkpoints/
+*.mp4
+*.jpg
+*.webm
+
+# Python кеш
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Расширения C (если есть компиляция)
+*.so
+*.onnx
+
+# Настройки среды (Environment variables)
+.env
+.flaskenv
+
+# Локальные настройки IDE
+.vscode/
+.idea/
+
+# Логи
+*.log
