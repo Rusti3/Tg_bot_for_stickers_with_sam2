@@ -1,7 +1,6 @@
 # Если че то не работает сосите
-
- # Telegram Bot for Puzzl<img width="626" height="626" alt="brown-cat-giving-thumbs-up-isolated-white-background_877796-4146" src="https://github.com/user-attachments/assets/5161cc61-83c8-450b-86f2-0e7d0d0d0ec1" />
-e Stickers (SAM2 + BiRefNet)
+<img width="626" height="626" alt="brown-cat-giving-thumbs-up-isolated-white-background_877796-4146" src="https://github.com/user-attachments/assets/5161cc61-83c8-450b-86f2-0e7d0d0d0ec1" />
+ # Telegram Bot for Puzzle Stickers (SAM2 + BiRefNet)
 
 ## Что делает бот
 Бот режет фото/видео/GIF на сетку и создает Telegram sticker set из тайлов 100x100.
