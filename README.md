@@ -1,4 +1,5 @@
 ﻿# Telegram Bot for Puzzle Stickers (SAM2 + BiRefNet)
+![Uploading image.png…]()
 
 ## Что делает бот
 Бот режет фото/видео/GIF на сетку и создает Telegram sticker set из тайлов 100x100.
