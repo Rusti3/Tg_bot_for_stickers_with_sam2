@@ -1,32 +1,34 @@
-# Виртуальное окружение (основное)
 .venv/
 venv/
 ENV/
 env/
 
-# Директории с временными файлами твоего бота (из кода)
-bot_temp/
-checkpoints/
-*.mp4
-*.jpg
-*.webm
-
-# Python кеш
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+.pytest_cache/
+.pytest-tmp*
+pytest-cache-files-*
+.manual-test-scratch/
 
-# Расширения C (если есть компиляция)
-*.so
-*.onnx
-
-# Настройки среды (Environment variables)
 .env
 .flaskenv
+apps/control-plane/node_modules/
+apps/control-plane/dist/
 
-# Локальные настройки IDE
 .vscode/
 .idea/
 
-# Логи
+bot_temp/
+checkpoints/
+data/
+*.mp4
+*.jpg
+*.webm
 *.log
+*.so
+*.onnx
+postgres-data/
+redis-data/
+minio-data/

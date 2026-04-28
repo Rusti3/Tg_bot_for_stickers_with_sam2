@@ -1,0 +1,3 @@
+-r gpu-linux.txt
+pytest==8.4.1
+

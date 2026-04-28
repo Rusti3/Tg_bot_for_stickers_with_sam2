@@ -1,0 +1,261 @@
+x-node-env: &node-env
+  DATABASE_URL: ${DATABASE_URL}
+  REDIS_URL: ${REDIS_URL}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+  TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET}
+  TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL}
+  DATA_DIR: ${DATA_DIR:-/app/data}
+  TEMP_DIR: ${TEMP_DIR:-/app/data/tmp}
+  LIMITS_FILE: ${LIMITS_FILE:-/app/data/state/user_limits.json}
+  SAM2_CHECKPOINT: ${SAM2_CHECKPOINT:-/app/data/checkpoints/sam2.1_hiera_base_plus.pt}
+  SAM2_CONFIG_NAME: ${SAM2_CONFIG_NAME:-sam2.1_hiera_b+.yaml}
+  FFMPEG_CMD: ${FFMPEG_CMD:-ffmpeg}
+  MAX_GRID_WIDTH: ${MAX_GRID_WIDTH:-10}
+  AUTO_DOWNLOAD_SAM2: ${AUTO_DOWNLOAD_SAM2:-true}
+  SAM2_CHECKPOINT_URL: ${SAM2_CHECKPOINT_URL:-https://huggingface.co/facebook/sam2.1-hiera-base-plus/resolve/main/sam2.1_hiera_base_plus.pt?download=true}
+  OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:-minio:9000}
+  OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+  OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+  OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+  OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-sticker-bot}
+  OBJECT_STORAGE_USE_SSL: ${OBJECT_STORAGE_USE_SSL:-false}
+  CPU_EXECUTOR_URL: ${CPU_EXECUTOR_URL:-http://media-cpu-executor:8001}
+  GPU_EXECUTOR_URL: ${GPU_EXECUTOR_URL:-http://media-gpu-executor:8002}
+  CPU_WORKER_REPLICAS: ${CPU_WORKER_REPLICAS:-3}
+  CPU_PER_USER_CONCURRENCY: ${CPU_PER_USER_CONCURRENCY:-1}
+  CPU_USER_LEASE_TTL_SECONDS: ${CPU_USER_LEASE_TTL_SECONDS:-900}
+  GPU_PROVIDER: ${GPU_PROVIDER:-local}
+  PAID_PLAN_CODE: ${PAID_PLAN_CODE:-pro_100_daily_30d}
+  PAID_PLAN_DAILY_LIMIT: ${PAID_PLAN_DAILY_LIMIT:-100}
+  PAID_PLAN_DURATION_DAYS: ${PAID_PLAN_DURATION_DAYS:-30}
+  PAID_PLAN_STARS_AMOUNT: ${PAID_PLAN_STARS_AMOUNT:-1}
+
+x-executor-env: &executor-env
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+  DATA_DIR: ${DATA_DIR:-/app/data}
+  TEMP_DIR: ${TEMP_DIR:-/app/data/tmp}
+  LIMITS_FILE: ${LIMITS_FILE:-/app/data/state/user_limits.json}
+  SAM2_CHECKPOINT: ${SAM2_CHECKPOINT:-/app/data/checkpoints/sam2.1_hiera_base_plus.pt}
+  SAM2_CONFIG_NAME: ${SAM2_CONFIG_NAME:-sam2.1_hiera_b+.yaml}
+  FFMPEG_CMD: ${FFMPEG_CMD:-ffmpeg}
+  MAX_GRID_WIDTH: ${MAX_GRID_WIDTH:-10}
+  AUTO_DOWNLOAD_SAM2: ${AUTO_DOWNLOAD_SAM2:-true}
+  SAM2_CHECKPOINT_URL: ${SAM2_CHECKPOINT_URL:-https://huggingface.co/facebook/sam2.1-hiera-base-plus/resolve/main/sam2.1_hiera_base_plus.pt?download=true}
+  OBJECT_STORAGE_ENDPOINT: ${OBJECT_STORAGE_ENDPOINT:-minio:9000}
+  OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+  OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+  OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-sticker-bot}
+  OBJECT_STORAGE_USE_SSL: ${OBJECT_STORAGE_USE_SSL:-false}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sticker_bot}
+      POSTGRES_USER: ${POSTGRES_USER:-sticker_bot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sticker_bot}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sticker_bot} -d ${POSTGRES_DB:-sticker_bot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+  minio:
+    image: quay.io/minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    restart: unless-stopped
+    volumes:
+      - minio-data:/data
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_started
+    environment:
+      OBJECT_STORAGE_ACCESS_KEY: ${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}
+      OBJECT_STORAGE_SECRET_KEY: ${OBJECT_STORAGE_SECRET_KEY:-minioadmin}
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-sticker-bot}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set local http://minio:9000 "$${OBJECT_STORAGE_ACCESS_KEY}" "$${OBJECT_STORAGE_SECRET_KEY}"; do
+          sleep 2
+        done
+        mc mb --ignore-existing local/"$${OBJECT_STORAGE_BUCKET}"
+
+  api:
+    image: tg_bot_for_stickers_with_sam2-node:latest
+    build:
+      context: .
+      dockerfile: docker/node.Dockerfile
+    command: ["npm", "run", "start:api"]
+    environment:
+      <<: *node-env
+      PROCESS_ROLE: api
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      media-cpu-executor:
+        condition: service_started
+      media-gpu-executor:
+        condition: service_started
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token
+      - ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
+  cpu-worker-1:
+    image: tg_bot_for_stickers_with_sam2-node:latest
+    command: ["npm", "run", "start:cpu-worker"]
+    environment:
+      <<: *node-env
+      PROCESS_ROLE: cpu-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      media-cpu-executor:
+        condition: service_started
+    restart: unless-stopped
+
+  cpu-worker-2:
+    image: tg_bot_for_stickers_with_sam2-node:latest
+    command: ["npm", "run", "start:cpu-worker"]
+    environment:
+      <<: *node-env
+      PROCESS_ROLE: cpu-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      media-cpu-executor:
+        condition: service_started
+    restart: unless-stopped
+
+  cpu-worker-3:
+    image: tg_bot_for_stickers_with_sam2-node:latest
+    command: ["npm", "run", "start:cpu-worker"]
+    environment:
+      <<: *node-env
+      PROCESS_ROLE: cpu-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      media-cpu-executor:
+        condition: service_started
+    restart: unless-stopped
+
+  gpu-worker:
+    image: tg_bot_for_stickers_with_sam2-node:latest
+    command: ["npm", "run", "start:gpu-worker"]
+    environment:
+      <<: *node-env
+      PROCESS_ROLE: gpu-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      media-gpu-executor:
+        condition: service_started
+    restart: unless-stopped
+
+  sender-worker:
+    image: tg_bot_for_stickers_with_sam2-node:latest
+    command: ["npm", "run", "start:sender-worker"]
+    environment:
+      <<: *node-env
+      PROCESS_ROLE: sender-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  media-cpu-executor:
+    image: tg_bot_for_stickers_with_sam2-python-executor:latest
+    build:
+      context: .
+      dockerfile: docker/python-executor.Dockerfile
+    environment:
+      <<: *executor-env
+      PORT: 8001
+      EXECUTOR_ROLE: cpu
+    expose:
+      - "8001"
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+
+  media-gpu-executor:
+    image: tg_bot_for_stickers_with_sam2-python-executor:latest
+    environment:
+      <<: *executor-env
+      PORT: 8002
+      EXECUTOR_ROLE: gpu
+    expose:
+      - "8002"
+    gpus: all
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  minio-data:
+  postgres-data:
+  redis-data:

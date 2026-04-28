@@ -1,0 +1,17 @@
+.git
+.gitignore
+.pytest_cache
+.pytest-tmp*
+pytest-cache-files-*
+.manual-test-scratch
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+apps/control-plane/node_modules
+apps/control-plane/dist
+bot_temp
+checkpoints
+data

@@ -1,0 +1,2 @@
+"""Sticker bot package."""
+
